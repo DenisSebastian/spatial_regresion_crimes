@@ -1,0 +1,328 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# Diagnósticos de Residuos {#d-residuos}
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 999)
+require(knitr)
+require(kableExtra)
+```
+
+## Pretratamientos de la Información
+
+#### Cargar Recursos Externos  {.unnumbered}
+
+```{r}
+source("scripts/recursos.R")
+source("scripts/funciones.R")
+```
+
+#### Definición de variables generales {.unnumbered}
+
+```{r}
+## geographic projections
+crs_latlon <- "+proj=longlat +datum=WGS84 +no_defs"
+crs_utm <- 
+  "+proj=utm +zone=19 +south +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"
+```
+
+#### Definición de variables específicas {.unnumbered}
+
+```{r}
+# List of crimes/delitos and cities/ciudades
+crimes = c(
+  "Minor property offenses",
+  "Robberies",
+  "Burglaries",
+  "Drunkennes, damages and disorders",
+  "Family violence and aggression",
+  "Injuries, drugs and weapons",
+  "High violence and murder"
+)
+delitos = c("hurto", "robo", "asalto", "amen", "abus", "crim", "viol")
+
+#ciudad de ejemplo
+cities <- c("Coquimbo-Serena")
+ciudades <- c("urb_4_18")
+obs <- 1
+delito <- delitos[1]
+```
+
+<br>
+
+#### Lectura de Datos Espaciales {.unnumbered}
+
+Para el caso del presente ejemplo práctico se utiizará la ciudad de `r cities`.
+
+```{r warning=FALSE}
+city <- ciudades[obs]
+cityp <- readRDS(paste0("data/",city,".rds"))
+cityp <- spTransform(cityp, CRS(crs_utm))
+```
+
+
+
+El objeto espacial `cityp` cuyos puntos corresponde donde ha ucurrido eventos deictuales, cuyo formato `SpatialPointDataFrame`. A continuación se visualizan  los delitos de `r delito`:
+
+
+```{r echo=FALSE}
+mapview(cityp %>% st_as_sf(), zcol = "hurto", cex = 3)
+```
+
+
+
+<br>
+
+*Matriz de vecindad espacial*: Se utilizó la función propia `spatial_weights()` @(sec-spatial-weights)
+
+
+```{r}
+# matriz de vecindad espacial
+nb <- spatial_weights(city_df = cityp, nvec= 12)
+
+```
+
+
+<br>
+
+####  Transformaciones a los datos. {.unnumbered}
+
+Se utilizó funciónes de transformacion general mencionadas en @sec-f-transform que corresponden a las siguientes:
+
+- Transformación Cúbica
+- Transformación Logarítmica
+- Cáculo del Lag Espacial
+
+
+```{r}
+cityp <- cityp %>%
+    st_as_sf(crs = 4326) %>% 
+    mutate(across(.cols = all_of(delitos),
+                  .fns = t_cub, .names = "cub{.col}")) %>% 
+    mutate(across(.cols = all_of(delitos),
+                  .fns = t_log1p, .names = "log{.col}")) %>% 
+    mutate(across(.cols = all_of(delitos),
+                  .fns = lag_spatial, nb, .names = "lag{.col}")) %>%
+    as("Spatial")
+```
+
+
+
+```{r echo=FALSE}
+
+kable_styling(
+  kable(cityp@data %>% head(10), digits = 3, row.names = FALSE, align = "c",
+              caption = NULL, format = "html"),
+        bootstrap_options = c("striped", "hover", "condensed"),
+        position = "center", full_width = FALSE) 
+
+
+```
+
+
+<br>
+
+
+##  Evaluación De Residuos
+
+### Modelos MLB 
+
+####  Lectura del Modelo. {.unnumbered}
+
+
+```{r echo=FALSE}
+city <- ciudades[obs] 
+cityp <- readRDS(paste0("data/",city,".rds"))
+cityp <- spTransform(cityp, CRS(crs_utm))
+cityp <- cityp %>%
+    st_as_sf(crs = 4326) %>% 
+    mutate(across(.cols = all_of(delitos),
+                  .fns = t_cub, .names = "cub{.col}")) %>% 
+    mutate(across(.cols = all_of(delitos),
+                  .fns = t_log1p, .names = "log{.col}")) %>% 
+    mutate(across(.cols = all_of(delitos),
+                  .fns = lag_spatial, nb, .names = "lag{.col}")) %>%
+    as("Spatial")
+```
+
+
+```{r}
+model_mlb <- readRDS(paste0("output/mlb_",city,"_",delito,".rds"))
+```
+
+#### Extracción de Residuos
+
+```{r}
+cityp$res_fit_mlb <- residuals(model_mlb)
+cityp$fitted_fit_mlb <- fitted(model_mlb)
+cityp$sd_breaks_mlb <- scale(cityp$res_fit_mlb)[,1]
+
+
+```
+
+```{r warning=FALSE}
+breaks_qt <- classInt::classIntervals(cityp$sd_breaks_mlb, 
+                                      n = 5, style = "fisher")
+my_breaks <- round(breaks_qt$brks,2)
+```
+
+```{r}
+city_sf <- cityp %>% st_as_sf(crs = 32719) 
+
+residuos_mv <- mapview(city_sf,zcol="res_fit_mlb", at =my_breaks, cex=2) 
+  
+  
+residuos_mv
+```
+
+#### Global Moran
+
+Global Moran a Variable Depediente 
+
+```{r}
+spdep::moran.test(x = cityp$laghurto,  listw = nb)
+# moran.plot(x =cityp$laghurto,  listw = nb, labels=as.character(cityp$id))
+```
+
+Global Moran de Residuos
+
+```{r}
+spdep::moran.test(x = cityp$res_fit_mlb,  listw = nb)
+# moran.plot(x =cityp$res_fit_mlb,  listw = nb, labels=as.character(cityp$id))
+```
+
+#### Local Moran  de Residuos
+
+```{r}
+# Calcular Local Moran
+lmoran = localmoran(cityp$res_fit_mlb, nb)
+
+cityp$res_scaled = as.numeric(scale(cityp$res_fit_mlb))
+cityp$lag_scaled = lag.listw(nb, cityp$res_scaled)
+cityp@data = cbind(cityp@data, lmoran = as.data.frame(lmoran)[, 5])
+
+# Umbral de significancia estadistica
+pval=0.05
+
+# Definir cuadrantes
+cityp[(cityp$res_scaled >= 0 & cityp$lag_scaled >= 0) & (cityp$lmoran <= pval), "clusterM"] = "HH" # plot
+cityp[(cityp$res_scaled <= 0 & cityp$lag_scaled <= 0) & (cityp$lmoran <= pval), "clusterM"] = "LL" # plot
+cityp[(cityp$res_scaled >= 0 & cityp$lag_scaled <= 0) & (cityp$lmoran <= pval), "clusterM"] = "HL"
+cityp[(cityp$res_scaled <= 0 & cityp$lag_scaled >= 0) & (cityp$lmoran <= pval), "clusterM"] = "LH"
+cityp[(lmoran[, 5] > pval), "clusterM"] = "NS"
+table(cityp$clusterM)
+```
+
+
+```{r}
+city_sf <- cityp %>% st_as_sf(crs = 32719) %>% 
+  filter(clusterM != "NS")
+
+residuos_moran <- mapview(city_sf,zcol="clusterM", cex=2 )
+residuos_moran
+```
+
+
+### Modelos SAR
+
+```{r echo=FALSE}
+city <- ciudades[obs] 
+cityp <- readRDS(paste0("data/",city,".rds"))
+cityp <- spTransform(cityp, CRS(crs_utm))
+cityp <- cityp %>%
+    st_as_sf(crs = 4326) %>% 
+    mutate(across(.cols = all_of(delitos),
+                  .fns = t_cub, .names = "cub{.col}")) %>% 
+    mutate(across(.cols = all_of(delitos),
+                  .fns = t_log1p, .names = "log{.col}")) %>% 
+    mutate(across(.cols = all_of(delitos),
+                  .fns = lag_spatial, nb, .names = "lag{.col}")) %>%
+    as("Spatial")
+```
+
+
+
+```{r}
+
+model_sar <- readRDS(paste0("output/sar_",city,"_",delito,".rds"))
+```
+
+
+#### Extracción de Residuos SAR
+```{r}
+cityp$res_fit_sar <- residuals(model_sar)
+cityp$fitted_fit_sar <- fitted(model_sar)
+cityp$sd_breaks_sar <- scale(cityp$res_fit_sar)[,1]
+
+
+```
+
+```{r warning=FALSE}
+breaks_qt <- classInt::classIntervals(cityp$sd_breaks_sar, 
+                                      n = 5, style = "fisher")
+my_breaks <- round(breaks_qt$brks,2)
+```
+
+```{r}
+city_sf <- cityp %>% st_as_sf(crs = 32719) 
+
+residuos_mv <- mapview(city_sf,zcol="res_fit_sar", at =my_breaks, cex=2) 
+  
+residuos_mv
+```
+
+
+
+#### Global Moran
+
+Global Moran a Variable Depediente 
+
+```{r}
+spdep::moran.test(x = cityp$cubhurto,  listw = nb)
+# moran.plot(x =cityp$laghurto,  listw = nb, labels=as.character(cityp$id))
+```
+
+Global Moran de Residuos
+
+```{r}
+spdep::moran.test(x = cityp$res_fit_sar,  listw = nb)
+# moran.plot(x =cityp$res_fit_mlb,  listw = nb, labels=as.character(cityp$id))
+```
+
+#### Local Moran  de Residuos
+
+```{r}
+# Calcular Local Moran
+lmoran = localmoran(cityp$res_fit_sar, nb)
+
+cityp$res_scaled = as.numeric(scale(cityp$res_fit_sar))
+cityp$lag_scaled = lag.listw(nb, cityp$res_scaled)
+cityp@data = cbind(cityp@data, lmoran = as.data.frame(lmoran)[, 5])
+
+# Umbral de significancia estadistica
+pval=0.05
+
+# Definir cuadrantes
+cityp[(cityp$res_scaled >= 0 & cityp$lag_scaled >= 0) & (cityp$lmoran <= pval), "clusterM"] = "HH" # plot
+cityp[(cityp$res_scaled <= 0 & cityp$lag_scaled <= 0) & (cityp$lmoran <= pval), "clusterM"] = "LL" # plot
+cityp[(cityp$res_scaled >= 0 & cityp$lag_scaled <= 0) & (cityp$lmoran <= pval), "clusterM"] = "HL"
+cityp[(cityp$res_scaled <= 0 & cityp$lag_scaled >= 0) & (cityp$lmoran <= pval), "clusterM"] = "LH"
+cityp[(lmoran[, 5] > pval), "clusterM"] = "NS"
+table(cityp$clusterM)
+```
+
+
+```{r}
+city_sf <- cityp %>% st_as_sf(crs = 32719) %>% 
+  filter(clusterM != "NS")
+
+residuos_moran <- mapview(city_sf,zcol="clusterM", cex=2 )
+residuos_moran
+```
+

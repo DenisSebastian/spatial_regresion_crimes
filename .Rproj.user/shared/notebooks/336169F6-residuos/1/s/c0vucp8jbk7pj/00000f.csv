@@ -1,0 +1,1 @@
+"0","model_mlb <- readRDS(paste0(""output/mlb_"",city,""_"",delito,"".rds""))"

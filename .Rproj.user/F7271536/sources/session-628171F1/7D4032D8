@@ -1,0 +1,27 @@
+{
+    "id": "7D4032D8",
+    "path": "~/OneDrive - Universidad Adolfo Ibanez/FONDECYT/Crime_Cellphones/book_crimes/scripts/funciones.R",
+    "project_path": "scripts/funciones.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1661229246497.0,
+    "source_on_save": false,
+    "relative_order": 9,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "184,33",
+        "scrollLine": "31",
+        "marks": "<:195,0\n>:201,0"
+    },
+    "folds": "6|55|11|0|\n23|1|29|0|\n32|1|178|0|\n195|56|201|0|\n",
+    "lastKnownWriteTime": 1661237621,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1661834105904,
+    "read_only": false,
+    "read_only_alternatives": []
+}

@@ -1,0 +1,3 @@
+"0","# matriz de vecindad espacial"
+"0","nb <- spatial_weights(city_df = cityp, nvec= 12)"
+"0",""

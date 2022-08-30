@@ -1,0 +1,270 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+# CVM ppp {#cvm-ppp}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 999)
+require(knitr)
+require(kableExtra)
+```
+
+## Pretratamientos de la Información
+
+#### Cargar Recursos Externos  {.unnumbered}
+
+```{r}
+source("scripts/recursos.R")
+source("scripts/funciones.R")
+```
+
+#### Definición de variables generales {.unnumbered}
+
+```{r}
+## geographic projections
+crs_latlon <- "+proj=longlat +datum=WGS84 +no_defs"
+crs_utm <- 
+  "+proj=utm +zone=19 +south +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"
+```
+
+#### Definición de variables específicas {.unnumbered}
+
+```{r}
+# List of crimes/delitos and cities/ciudades
+crimes = c(
+  "Minor property offenses",
+  "Robberies",
+  "Burglaries",
+  "Drunkennes, damages and disorders",
+  "Family violence and aggression",
+  "Injuries, drugs and weapons",
+  "High violence and murder"
+)
+delitos = c("hurto", "robo", "asalto", "amen", "abus", "crim", "viol")
+
+#ciudad de ejemplo
+cities <- c("Coquimbo-Serena")
+ciudades <- c("urb_4_18")
+obs <- 1
+delito <- delitos[1]
+```
+
+<br>
+
+#### Lectura de Datos Espaciales {.unnumbered}
+
+Para el caso del presente ejemplo práctico se utiizará la ciudad de `r cities`.
+
+```{r warning=FALSE}
+city <- ciudades[obs]
+cityp <- readRDS(paste0("data/",city,".rds"))
+cityp <- spTransform(cityp, CRS(crs_utm))
+```
+
+
+
+El objeto espacial `cityp` cuyos puntos corresponde donde ha ucurrido eventos deictuales, cuyo formato `SpatialPointDataFrame`. A continuación se visualizan  los delitos de `r delito`:
+
+
+```{r echo=FALSE}
+mapview(cityp %>% st_as_sf(), zcol = "hurto", cex = 3)
+```
+
+
+
+<br>
+
+*Matriz de vecindad espacial*: Se utilizó la función propia `spatial_weights()` @(sec-spatial-weights)
+
+
+```{r}
+# matriz de vecindad espacial
+nb <- spatial_weights(city_df = cityp, nvec= 12)
+
+```
+
+<br>
+
+#### Ventana de Trabajo para  ppp (Point Pattern Plane) {.unnumbered}
+
+Crea un objeto de clase "ppp" que representa un conjunto de datos de patrones de puntos en el plano bidimensional. Por lo anterior, se debe crear una ventana de observación `w`.
+
+```{r}
+#make windows
+  ext <- raster::extent(cityp)
+  x_min <- ext[1] + 100
+  x_max <- ext[2] - 100
+  y_min <- ext[3] + 100
+  y_max <- ext[4] - 100
+  w <- as.owin(c(x_min,x_max, y_min, y_max))
+```
+
+<br>
+
+####  Transformaciones a los datos. {.unnumbered}
+
+Se utilizó funciónes de transformacion general mencionadas en @sec-f-transform que corresponden a las siguientes:
+
+- Transformación Cúbica
+- Transformación Logarítmica
+- Cáculo del Lag Espacial
+
+
+```{r}
+cityp <- cityp %>%
+    st_as_sf(crs = 4326) %>% 
+    mutate(across(.cols = all_of(delitos),
+                  .fns = t_cub, .names = "cub{.col}")) %>% 
+    mutate(across(.cols = all_of(delitos),
+                  .fns = t_log1p, .names = "log{.col}")) %>% 
+    mutate(across(.cols = all_of(delitos),
+                  .fns = lag_spatial, nb, .names = "lag{.col}")) %>%
+    as("Spatial")
+```
+
+
+
+```{r echo=FALSE}
+
+kable_styling(
+  kable(cityp@data %>% head(10), digits = 3, row.names = FALSE, align = "c",
+              caption = NULL, format = "html"),
+        bootstrap_options = c("striped", "hover", "condensed"),
+        position = "center", full_width = FALSE) 
+
+
+```
+
+
+<br>
+
+
+##  Evaluación Cramer Von Mises
+
+### Modelos MLB 
+
+Para transformar los datos espaciales de los delitos y las predicciones de los modelos se utilizó la función propia `ppp_maker()` @sec-ppp-maker que retorna el objeto `ppp`.
+
+####  Lectura del Modelo. {.unnumbered}
+
+```{r}
+model_mlb <- readRDS(paste0("output/mlb_",city,"_",delito,".rds"))
+```
+
+####  Transformaciones de las predicciones del modelo a ppp. {.unnumbered}
+
+```{r}
+
+ppp_mbl_pred <- ppp_maker(model = model_mlb, city = cityp, 
+                     delito = delito, ppp_predict = T, w = w)
+
+plot(density(ppp_mbl_pred, adjust=.25))
+```
+
+
+####  Transformaciones de los delitos reales a a ppp. {.unnumbered}
+
+```{r}
+ppp_mbl <- ppp_maker(model = model_mlb, city = cityp, 
+                          delito = delito, ppp_predict = F, w= w)
+
+plot(density(ppp_mbl, adjust=.25))
+```
+
+####   Evaluación `cdf.test.()` {.unnumbered}
+
+
+```{r}
+cvm_mlb <- cdf.test(ppp_mbl, as.im(ppp_mbl), test="cvm")
+plot(cvm_mlb)
+```
+
+```{r}
+attr_model <- attr(cvm_mlb, which = "frame")
+im <- attr_model$values$Zimage 
+r_mlb <- raster(im)
+proj4string(r_mlb)=crs_utm
+values(r_mlb) <- ifelse(values(r_mlb)==0, NA, values(r_mlb))
+plot(r_mlb)
+
+
+```
+
+
+```{r}
+pred_mlb <- predict_df(model = model_mlb, city = cityp, longlat = F)
+pred_mlb <- st_as_sf(x = pred_mlb,                         
+                       coords = c("x", "y"),
+                       crs = 32719) %>% 
+  filter(!is.na(delitos))
+
+mapview(r_mlb, na.color= NA)+
+  mapview(pred_mlb, zcol = "ypred",hide = TRUE,  cex = 2)+
+  mapview(pred_mlb, zcol = "delitos", hide = TRUE,  cex = 2)
+```
+
+
+### Modelos SAR
+
+
+
+```{r}
+city <- ciudades[obs] 
+model_sar <- readRDS(paste0("output/sar_",city,"_",delito,".rds"))
+
+ppp_sar_pred <- ppp_maker(model = model_sar, city = cityp, 
+                            delito = delito, ppp_predict = T,
+                            w = w, nb = nb)
+  
+plot(density(ppp_sar_pred, adjust=.1))
+```
+
+
+```{r}
+ppp_sar <- ppp_maker(model = model_sar, city = cityp, 
+                       delito = delito, ppp_predict = F, 
+                       w = w, nb = nb)
+  
+plot(density(ppp_sar, adjust=.25))
+```
+
+
+```{r}
+# st <- syrjala.test(ppp_mbl, ppp_mbl_pred, nsim = 999)
+cvm_sar <- cdf.test(ppp_sar, as.im(ppp_sar_pred), test="cvm")
+plot(cvm_sar)
+```
+
+
+```{r}
+attr_model <- attr(cvm_sar, which = "frame")
+im <- attr_model$values$Zimage 
+r_sar <- raster(im)
+proj4string(r_sar)=crs_utm
+values(r_sar) <- ifelse(values(r_sar)==0, NA, values(r_sar))
+# plot(r_sar)
+
+
+```
+
+
+```{r}
+pred_sar <- predict_df(model = model_sar, city = cityp, longlat = F)
+pred_sar <- st_as_sf(x = pred_sar,                         
+                       coords = c("x", "y"),
+                       crs = 32719) %>% 
+  filter(!is.na(delitos))
+
+mapview(r_sar, na.color= NA)+
+  mapview(pred_sar, zcol = "ypred",hide = TRUE,  cex = 2)+
+  mapview(pred_sar, zcol = "delitos", hide = TRUE,  cex = 2)
+  
+```
+
+
+
+
+

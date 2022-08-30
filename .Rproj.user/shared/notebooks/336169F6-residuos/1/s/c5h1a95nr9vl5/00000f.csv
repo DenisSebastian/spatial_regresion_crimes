@@ -1,0 +1,4 @@
+"0","## geographic projections"
+"0","crs_latlon <- ""+proj=longlat +datum=WGS84 +no_defs"""
+"0","crs_utm <- "
+"0","  ""+proj=utm +zone=19 +south +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"""

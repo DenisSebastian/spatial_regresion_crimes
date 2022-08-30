@@ -1,0 +1,8 @@
+"0","knitr::opts_chunk$set(echo = TRUE)"
+"0","options(scipen = 999)"
+"0","require(knitr)"
+"2","Loading required package: knitr
+"
+"0","require(kableExtra)"
+"2","Loading required package: kableExtra
+"

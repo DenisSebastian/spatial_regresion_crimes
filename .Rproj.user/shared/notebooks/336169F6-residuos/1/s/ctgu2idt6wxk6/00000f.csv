@@ -1,0 +1,3 @@
+"0","city <- ciudades[obs]"
+"0","cityp <- readRDS(paste0(""data/"",city,"".rds""))"
+"0","cityp <- spTransform(cityp, CRS(crs_utm))"

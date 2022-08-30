@@ -1,0 +1,6 @@
+"0",""
+"0","kable_styling("
+"0","  kable(cityp@data %>% head(10), digits = 3, row.names = FALSE, align = ""c"","
+"0","              caption = NULL, format = ""html""),"
+"0","        bootstrap_options = c(""striped"", ""hover"", ""condensed""),"
+"0","        position = ""center"", full_width = FALSE) "
