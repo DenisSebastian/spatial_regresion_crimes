@@ -165,7 +165,7 @@ breaks_qt <- classInt::classIntervals(cityp$sd_breaks_mlb,
 my_breaks <- round(breaks_qt$brks,2)
 ```
 
-```{r}
+```{r eval=FALSE}
 city_sf <- cityp %>% st_as_sf(crs = 32719) 
 residuos_mv <- mapview(city_sf,zcol="res_fit_mlb", at =my_breaks, cex=2) 
 residuos_mv
@@ -192,7 +192,6 @@ spdep::moran.test(x = cityp$res_fit_mlb,  listw = nb)
 ```{r}
 # Calcular Local Moran
 lmoran = localmoran(cityp$res_fit_mlb, nb)
-
 cityp$res_scaled = as.numeric(scale(cityp$res_fit_mlb))
 cityp$lag_scaled = lag.listw(nb, cityp$res_scaled)
 cityp@data = cbind(cityp@data, lmoran = as.data.frame(lmoran)[, 5])
@@ -259,7 +258,7 @@ breaks_qt <- classInt::classIntervals(cityp$sd_breaks_sar,
 my_breaks <- round(breaks_qt$brks,2)
 ```
 
-```{r}
+```{r eval=FALSE}
 city_sf <- cityp %>% st_as_sf(crs = 32719) 
 
 residuos_mv <- mapview(city_sf,zcol="res_fit_sar", at =my_breaks, cex=2) 
