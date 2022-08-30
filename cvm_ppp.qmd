@@ -1,8 +1,4 @@
----
-output: html_document
-editor_options: 
-  chunk_output_type: console
----
+
 # CVM ppp {#cvm-ppp}
 
 ```{r setup, include=FALSE}
@@ -65,15 +61,7 @@ cityp <- spTransform(cityp, CRS(crs_utm))
 ```
 
 
-
-El objeto espacial `cityp` cuyos puntos corresponde donde ha ucurrido eventos deictuales, cuyo formato `SpatialPointDataFrame`. A continuación se visualizan  los delitos de `r delito`:
-
-
-```{r echo=FALSE}
-mapview(cityp %>% st_as_sf(), zcol = "hurto", cex = 3)
-```
-
-
+El objeto espacial `cityp` cuyos puntos corresponde donde ha ucurrido eventos deictuales, cuyo formato `SpatialPointDataFrame`. 
 
 <br>
 

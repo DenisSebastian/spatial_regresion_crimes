@@ -68,14 +68,7 @@ cityp <- spTransform(cityp, CRS(crs_utm))
 
 
 
-El objeto espacial `cityp` cuyos puntos corresponde donde ha ucurrido eventos deictuales, cuyo formato `SpatialPointDataFrame`. A continuación se visualizan  los delitos de `r delito`:
-
-
-```{r echo=FALSE}
-mapview(cityp %>% st_as_sf(), zcol = "hurto", cex = 3)
-```
-
-
+El objeto espacial `cityp` cuyos puntos corresponde donde ha ucurrido eventos deictuales, cuyo formato `SpatialPointDataFrame`. 
 
 <br>
 
@@ -174,10 +167,7 @@ my_breaks <- round(breaks_qt$brks,2)
 
 ```{r}
 city_sf <- cityp %>% st_as_sf(crs = 32719) 
-
 residuos_mv <- mapview(city_sf,zcol="res_fit_mlb", at =my_breaks, cex=2) 
-  
-  
 residuos_mv
 ```
 

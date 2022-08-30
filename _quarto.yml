@@ -12,18 +12,20 @@ book:
     - summary.qmd
     - marco_teorico.qmd
     - cvm_ppp.qmd
-    - cvm_sim.qmd
     - residuos.qmd
     - funciones.qmd
     - references.qmd
 
 bibliography: references.bib
 
+
 format:
   html:
     theme: cosmo
-  pdf:
-    documentclass: scrreprt
+    html-math-method: katex
+    css: style.css
 
+editor: visual
+always_allow_html: true
 
 

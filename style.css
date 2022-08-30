@@ -2,10 +2,12 @@ p.caption {
   color: #777;
   margin-top: 10px;
 }
-
+p {
+  font-size: 12px
+}
 p code {
   white-space: inherit;
-  font-size: 10px
+    font-size: 10px
 }
 pre {
   word-break: normal;
@@ -13,13 +15,22 @@ pre {
 }
 pre code {
   white-space: inherit;
-  font-size: 10px
+  font-size: 13px
 }
 
-p {
-  font-size: 90%;
-}
 ul li{
-  font-size: 90%;
+  font-size: 13px
 }
 
+
+h1{
+  font-size: 25px
+}
+
+h2{
+  font-size: 20px
+}
+
+h3{
+  font-size: 18px
+}
